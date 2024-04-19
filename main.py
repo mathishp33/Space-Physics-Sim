@@ -23,6 +23,9 @@ ydist = 0.00000000001
 xdist = 0.00000000001
 a = 0
 R_MASS = 1000
+sensy = 0.2
+pg.font.init()
+
 class Rocket():
     def __init__(self):
         self.rocket_img = pg.image.load('rocket.png')
@@ -43,14 +46,11 @@ class Rocket():
         self.rotated_image = pg.transform.rotate(self.rocket_img, orientation)
         self.rotated_image_rect = self.rotated_image.get_rect(center = self.rotated_image_center)
         screen.blit(self.rotated_image, self.rotated_image_rect)
-
-
-    
 class Planet():
     def __init__(self):
         self.radius = 100000
         self.x = 0
-        self.y = 0.0000000000001 - rocket.heigt * 4
+        self.y = -self.radius - rocket.heigt * 4
         self.collision = False
         self.x_vec = 0
         self.y_vec = 0
@@ -64,9 +64,8 @@ class Planet():
             self.y_vec += math.cos(orientation*math.pi/360*2)*self.f
         self.y -= self.y_vec
         self.x += self.x_vec 
-        self.zoomed_pos = (self.x*zoom +WIDTH/2, -self.y*zoom + HEIGHT/2 + self.radius*zoom)
+        self.zoomed_pos = (self.x*zoom +WIDTH/2, -self.y*zoom + HEIGHT/2)
         pg.draw.circle(screen, GREEN, self.zoomed_pos, self.radius*zoom)
-
 class Laser():
     def update(self):
         self.x = rocket.x - WIDTH/2
@@ -78,33 +77,43 @@ class Laser():
         self.ydist = ydist
         self.xdist = xdist
         self.a = a
+        
         for i in range(5000):
             self.x_pos = self.x
             self.y_pos = self.y
-            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(a*math.pi/360)*1
-            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(a*math.pi/360)*1
+            self.ydist = abs(self.x-WIDTH/2 -planet.x)
+            self.xdist = abs(self.y-HEIGHT/2 -planet.y)
+            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(self.a*math.pi/360)*1
+            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(self.a*math.pi/360)*1
             self.y -= self.y_vec/1
             self.x += self.x_vec/1
             self.zoomed_pos = (-self.x*zoom  +WIDTH/2 , self.y*zoom  + HEIGHT/2 )
             self.pos = (-self.x_pos*zoom  +WIDTH/2 , self.y_pos*zoom  + HEIGHT/2 )
             pg.draw.line(screen, BLUE, self.pos, self.zoomed_pos, int(5*zoom)+1)
-            
-    
+class GUI():
+    def __init__(self):
+        self.sf = pg.font.SysFont('Corbel',30)
+    def update(self):
+        self.velocity = self.sf.render('velocity : ' + str(round((math.sqrt(planet.x_vec**2 + planet.y_vec**2)*100))/100), True, WHITE)
+        self.alt = self.sf.render('altitude : ' + str(round((math.sqrt((ydist)**2 + (xdist)**2)-planet.radius)*10)/10), True, WHITE)
+        screen.blit(self.velocity,(0, 0))
+        screen.blit(self.alt, (0, 30))
+        
 rocket = Rocket()
 planet = Planet()
 laser = Laser()
-pos = [0,0]
+gui = GUI()
 running = True
 while running: 
     orientation -= rotation_vec
     rotation_vec = rotation_vec / 1.12
     keys = pg.key.get_pressed()
-    rotation_vec += (keys[pg.K_d] - keys[pg.K_q]) * 0.1
+    rotation_vec += (keys[pg.K_d] - keys[pg.K_q]) * 0.2
     if zoom < 0.1: zoom_out == False
     else: zoom_out = True
     if zoom > 5: zoom = 5
-    if zoom_out == True : zoom += (keys[pg.K_i] - keys[pg.K_o]) * 0.007*zoom
-    else: zoom += abs((keys[pg.K_i] - keys[pg.K_o])) * 0.007*zoom
+    if zoom_out == True : zoom += (keys[pg.K_i] - keys[pg.K_o]) * sensy*zoom
+    else: zoom += abs((keys[pg.K_i] - keys[pg.K_o])) * sensy*zoom
     for event in pg.event.get(): 
         if event.type == pg.QUIT: 
             running = False
@@ -112,11 +121,11 @@ while running:
     screen.fill(BLACK)
     rocket.draw()
     laser.update()
-    ydist = abs(rocket.x-WIDTH/2 -planet.x)
-    xdist = abs(rocket.y-HEIGHT/2 -planet.y)
+    xdist = abs(rocket.x-WIDTH/2 -planet.x)
+    ydist = abs(rocket.y-HEIGHT/2 -planet.y)
     a = math.atan(xdist/ydist)*180/math.pi
     planet.update()
-    
+    gui.update()
     pg.display.flip()
     clock.tick(60)
     
