@@ -25,6 +25,7 @@ a = 0
 R_MASS = 1000
 sensy = 0.2
 pg.font.init()
+method = 0
 
 class Rocket():
     def __init__(self):
@@ -57,8 +58,12 @@ class Planet():
         self.zoomed_pos = (0,0)
         self.f = 0.015
     def update(self):
-        self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(a*math.pi/360) 
-        self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(a*math.pi/360) 
+        if method == 0:
+            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(a*math.pi/360) 
+            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(a*math.pi/360) 
+        else:
+            self.y_vec -= 1.6*R_MASS*math.cos(a*math.pi/360)*1/60
+            self.x_vec += 1.6*R_MASS*math.sin(a*math.pi/360)*1/60
         if keys[pg.K_SPACE] == 1:
             self.x_vec += math.sin(orientation*math.pi/360*2)*self.f
             self.y_vec += math.cos(orientation*math.pi/360*2)*self.f
@@ -83,8 +88,12 @@ class Laser():
             self.y_pos = self.y
             self.ydist = abs(self.x-WIDTH/2 -planet.x)
             self.xdist = abs(self.y-HEIGHT/2 -planet.y)
-            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(self.a*math.pi/360)*1
-            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(self.a*math.pi/360)*1
+            if method == 0:
+                self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(a*math.pi/360) 
+                self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(a*math.pi/360) 
+            else:
+                self.y_vec -= 1.6*R_MASS*math.cos(a*math.pi/360)*1/60
+                self.x_vec += 1.6*R_MASS*math.sin(a*math.pi/360)*1/60
             self.y -= self.y_vec/1
             self.x += self.x_vec/1
             self.zoomed_pos = (-self.x*zoom  +WIDTH/2 , self.y*zoom  + HEIGHT/2 )
