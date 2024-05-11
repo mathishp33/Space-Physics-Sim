@@ -11,10 +11,10 @@ G = 6.67428*pow(10,-11)
 PL_MASS = pow(10,7)
 WIDTH, HEIGHT = 1600,800
 screen = pg.display.set_mode((WIDTH, HEIGHT)) 
-pg.display.set_caption('Space Physics sim')
 screen.fill(BLACK) 
 pg.display.flip() 
 clock = pg.time.Clock()
+pg.display.set_caption('Space Physics sim' + str(clock.get_fps()))
 orientation = 0
 rotation_vec = 0
 zoom = 1
@@ -56,14 +56,10 @@ class Planet():
         self.x_vec = 0
         self.y_vec = 0
         self.zoomed_pos = (0,0)
-        self.f = 0.015
+        self.f = 0.05
     def update(self):
-        if method == 0:
-            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(a*math.pi/360) 
-            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(a*math.pi/360) 
-        else:
-            self.y_vec -= 1.6*R_MASS*math.cos(a*math.pi/360)*1/60
-            self.x_vec += 1.6*R_MASS*math.sin(a*math.pi/360)*1/60
+        self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a))
+        self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a))
         if keys[pg.K_SPACE] == 1:
             self.x_vec += math.sin(orientation*math.pi/360*2)*self.f
             self.y_vec += math.cos(orientation*math.pi/360*2)*self.f
@@ -82,20 +78,16 @@ class Laser():
         self.ydist = ydist
         self.xdist = xdist
         self.a = a
-        
-        for i in range(5000):
+        self.n = np.array(list(range(6000)))
+        for i in enumerate(self.n):
             self.x_pos = self.x
             self.y_pos = self.y
-            self.ydist = abs(self.x-WIDTH/2 -planet.x)
-            self.xdist = abs(self.y-HEIGHT/2 -planet.y)
-            if method == 0:
-                self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(a*math.pi/360) 
-                self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(a*math.pi/360) 
-            else:
-                self.y_vec -= 1.6*R_MASS*math.cos(a*math.pi/360)*1/60
-                self.x_vec += 1.6*R_MASS*math.sin(a*math.pi/360)*1/60
-            self.y -= self.y_vec/1
-            self.x += self.x_vec/1
+            self.ydist = self.x-WIDTH/2 -planet.x
+            self.xdist = self.y-HEIGHT/2 -planet.y
+            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a)) 
+            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a)) 
+            self.y -= self.y_vec
+            self.x += self.x_vec
             self.zoomed_pos = (-self.x*zoom  +WIDTH/2 , self.y*zoom  + HEIGHT/2 )
             self.pos = (-self.x_pos*zoom  +WIDTH/2 , self.y_pos*zoom  + HEIGHT/2 )
             pg.draw.line(screen, BLUE, self.pos, self.zoomed_pos, int(5*zoom)+1)
@@ -114,6 +106,7 @@ laser = Laser()
 gui = GUI()
 running = True
 while running: 
+    pg.display.set_caption('Space Physics sim                 ' + str(clock.get_fps()))
     orientation -= rotation_vec
     rotation_vec = rotation_vec / 1.12
     keys = pg.key.get_pressed()
@@ -130,9 +123,9 @@ while running:
     screen.fill(BLACK)
     rocket.draw()
     laser.update()
-    xdist = abs(rocket.x-WIDTH/2 -planet.x)
-    ydist = abs(rocket.y-HEIGHT/2 -planet.y)
-    a = math.atan(xdist/ydist)*180/math.pi
+    xdist = rocket.x-WIDTH/2 -planet.x
+    ydist = rocket.y-HEIGHT/2 -planet.y
+    a = math.degrees(math.atan2(xdist, ydist))
     planet.update()
     gui.update()
     pg.display.flip()
