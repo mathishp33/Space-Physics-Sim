@@ -59,11 +59,15 @@ class Planet():
         self.zoomed_pos = (0,0)
         self.f = 0.05
     def update(self):
-        self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a))
-        self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a))
         if keys[pg.K_SPACE] == 1:
             self.x_vec += math.sin(orientation*math.pi/360*2)*self.f
             self.y_vec += math.cos(orientation*math.pi/360*2)*self.f
+        if math.sqrt((ydist)**2 + (xdist)**2)-self.radius -rocket.heigt/2>0:
+            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a))
+            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a))
+        else:
+            self.y_vec=abs(self.x_vec/1.5)
+            self.x_vec=abs(self.x_vec/1.5)
         self.y -= self.y_vec
         self.x += self.x_vec 
         self.zoomed_pos = (self.x*zoom +WIDTH/2, -self.y*zoom + HEIGHT/2)
