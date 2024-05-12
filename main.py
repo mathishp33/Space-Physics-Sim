@@ -26,6 +26,7 @@ R_MASS = 1000
 sensy = 0.2
 pg.font.init()
 method = 0
+pos = [(0,0), (0,0), (0,0)]
 
 class Rocket():
     def __init__(self):
@@ -75,15 +76,13 @@ class Laser():
         self.y_vec = planet.y_vec
         self.x_pos = self.x
         self.y_pos = self.y
-        self.ydist = ydist
-        self.xdist = xdist
+        self.xdist = self.x-WIDTH/2 -planet.x
+        self.ydist = self.y-HEIGHT/2 -planet.y
         self.a = a
-        self.n = np.array(list(range(6000)))
+        self.n = np.array(list(range(2000)))
         for i in enumerate(self.n):
             self.x_pos = self.x
             self.y_pos = self.y
-            self.ydist = self.x-WIDTH/2 -planet.x
-            self.xdist = self.y-HEIGHT/2 -planet.y
             self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a)) 
             self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a)) 
             self.y -= self.y_vec
