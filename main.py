@@ -66,8 +66,8 @@ class Planet():
             self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a))
             self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a))
         else:
-            self.y_vec=abs(self.x_vec/1.5)
-            self.x_vec=abs(self.x_vec/1.5)
+            self.y_vec=abs(self.y_vec/1.5)* np.sign(self.y_vec)
+            self.x_vec=abs(self.x_vec/1.5)* np.sign(self.x_vec)
         self.y -= self.y_vec
         self.x += self.x_vec 
         self.zoomed_pos = (self.x*zoom +WIDTH/2, -self.y*zoom + HEIGHT/2)
