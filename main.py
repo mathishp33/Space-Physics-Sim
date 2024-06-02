@@ -2,6 +2,8 @@ import pygame as pg
 import time
 import numpy as np
 import math
+import taichi as ti
+ti.init(arch=ti.gpu)
 BLACK = (0,0,0)
 WHITE = (255,255,255)
 RED = (255,0,0)
@@ -27,6 +29,8 @@ sensy = 0.2
 pg.font.init()
 method = 0
 pos = [(0,0), (0,0), (0,0)]
+
+
 
 class Rocket():
     def __init__(self):
@@ -80,19 +84,21 @@ class Laser():
         self.y_vec = planet.y_vec
         self.x_pos = self.x
         self.y_pos = self.y
-        self.xdist = self.x-WIDTH/2 -planet.x
-        self.ydist = self.y-HEIGHT/2 -planet.y
+        self.xdist = xdist
+        self.ydist = ydist
         self.a = a
-        self.n = np.array(list(range(2000)))
-        for i in enumerate(self.n):
+        for i in range(5000):
             self.x_pos = self.x
             self.y_pos = self.y
-            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a)) 
-            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a)) 
-            self.y -= self.y_vec
+            self.xdist = planet.x - self.x
+            self.ydist = planet.y - self.y
+            self.a = math.degrees(math.atan2(self.xdist, self.ydist))
+            self.y_vec += (G*(PL_MASS*R_MASS/self.ydist*self.ydist)*1/60)*math.cos(math.radians(self.a)) 
+            self.x_vec += (G*(PL_MASS*R_MASS/self.xdist*self.xdist)*1/60)*math.sin(math.radians(self.a)) 
+            self.y += self.y_vec
             self.x += self.x_vec
-            self.zoomed_pos = (-self.x*zoom  +WIDTH/2 , self.y*zoom  + HEIGHT/2 )
-            self.pos = (-self.x_pos*zoom  +WIDTH/2 , self.y_pos*zoom  + HEIGHT/2 )
+            self.zoomed_pos = (-self.x*zoom  +WIDTH/2 , -self.y*zoom  + HEIGHT/2 )
+            self.pos = (-self.x_pos*zoom  +WIDTH/2 , -self.y_pos*zoom  + HEIGHT/2 )
             pg.draw.line(screen, BLUE, self.pos, self.zoomed_pos, int(5*zoom)+1)
 class GUI():
     def __init__(self):
@@ -125,11 +131,11 @@ while running:
 
     screen.fill(BLACK)
     rocket.draw()
-    laser.update()
     xdist = rocket.x-WIDTH/2 -planet.x
     ydist = rocket.y-HEIGHT/2 -planet.y
     a = math.degrees(math.atan2(xdist, ydist))
     planet.update()
+    laser.update()
     gui.update()
     pg.display.flip()
     clock.tick(60)
