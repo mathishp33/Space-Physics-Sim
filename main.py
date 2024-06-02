@@ -3,7 +3,13 @@ import time
 import numpy as np
 import math
 import taichi as ti
-ti.init(arch=ti.gpu)
+try:
+    ti.init(arch=ti.gpu)
+except:
+    try:
+        ti.init(arch=ti.cpu)
+    except:
+        pass
 BLACK = (0,0,0)
 WHITE = (255,255,255)
 RED = (255,0,0)
