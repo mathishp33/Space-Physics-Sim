@@ -121,7 +121,7 @@ laser = Laser()
 gui = GUI()
 running = True
 while running: 
-    pg.display.set_caption('Space Physics sim                 ' + str(clock.get_fps()))
+    pg.display.set_caption('Space Physics sim | ' + str(round(clock.get_fps()*10)/10))
     orientation -= rotation_vec
     rotation_vec = rotation_vec / 1.12
     keys = pg.key.get_pressed()
