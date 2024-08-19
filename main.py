@@ -2,14 +2,8 @@ import pygame as pg
 import time
 import numpy as np
 import math
-import taichi as ti
-try:
-    ti.init(arch=ti.gpu)
-except:
-    try:
-        ti.init(arch=ti.cpu)
-    except:
-        pass
+from numba import jit
+
 BLACK = (0,0,0)
 WHITE = (255,255,255)
 RED = (255,0,0)
@@ -82,30 +76,30 @@ class Planet():
         self.x += self.x_vec 
         self.zoomed_pos = (self.x*zoom +WIDTH/2, -self.y*zoom + HEIGHT/2)
         pg.draw.circle(screen, GREEN, self.zoomed_pos, self.radius*zoom)
-class Laser():
-    def update(self):
-        self.x = rocket.x - WIDTH/2
-        self.y = rocket.y - HEIGHT/2
-        self.x_vec = planet.x_vec
-        self.y_vec = planet.y_vec
-        self.x_pos = self.x
-        self.y_pos = self.y
-        self.xdist = xdist
-        self.ydist = ydist
-        self.a = a
-        for i in range(5000):
-            self.x_pos = self.x
-            self.y_pos = self.y
-            self.xdist = planet.x - self.x
-            self.ydist = planet.y - self.y
-            self.a = math.degrees(math.atan2(self.xdist, self.ydist))
-            self.y_vec += (G*(PL_MASS*R_MASS/self.ydist*self.ydist)*1/60)*math.cos(math.radians(self.a)) 
-            self.x_vec += (G*(PL_MASS*R_MASS/self.xdist*self.xdist)*1/60)*math.sin(math.radians(self.a)) 
-            self.y += self.y_vec
-            self.x += self.x_vec
-            self.zoomed_pos = (-self.x*zoom  +WIDTH/2 , -self.y*zoom  + HEIGHT/2 )
-            self.pos = (-self.x_pos*zoom  +WIDTH/2 , -self.y_pos*zoom  + HEIGHT/2 )
-            pg.draw.line(screen, BLUE, self.pos, self.zoomed_pos, int(5*zoom)+1)
+        
+@jit(parallel=True, fastmath=True, forceobj=True)
+def ballistic_computer():
+    x = rocket.x - WIDTH/2
+    y = rocket.y - HEIGHT/2
+    x_vec = planet.x_vec
+    y_vec = planet.y_vec
+    for i in range(5000):
+        x_pos = x
+        y_pos = y
+        xdist = planet.x -x
+        ydist = planet.y - y 
+        a = math.degrees(math.atan2(xdist, ydist))
+        y_vec = y_vec + (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a)) 
+        x_vec = x_vec + (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a)) 
+        y += y_vec
+        x += x_vec
+        zoomed_pos = (-x*zoom  +WIDTH/2 , -y*zoom  + HEIGHT/2 )
+        pos = (-x_pos*zoom  +WIDTH/2 , -y_pos*zoom  + HEIGHT/2 )
+        pg.draw.line(screen, BLUE, pos, zoomed_pos, int(5*zoom)+1)
+    
+
+        
+        
 class GUI():
     def __init__(self):
         self.sf = pg.font.SysFont('Corbel',30)
@@ -117,7 +111,6 @@ class GUI():
         
 rocket = Rocket()
 planet = Planet()
-laser = Laser()
 gui = GUI()
 running = True
 while running: 
@@ -136,13 +129,15 @@ while running:
             running = False
 
     screen.fill(BLACK)
-    rocket.draw()
     xdist = rocket.x-WIDTH/2 -planet.x
     ydist = rocket.y-HEIGHT/2 -planet.y
     a = math.degrees(math.atan2(xdist, ydist))
+    
+    rocket.draw()
     planet.update()
-    laser.update()
+    ballistic_computer()
     gui.update()
+    
     pg.display.flip()
     clock.tick(60)
     
