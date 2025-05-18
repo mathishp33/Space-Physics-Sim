@@ -1,144 +1,271 @@
 import pygame as pg
-import time
+import random
 import numpy as np
-import math
+import time
+import copy
 from numba import jit
 
-BLACK = (0,0,0)
-WHITE = (255,255,255)
-RED = (255,0,0)
-GREEN = (0,255,0)
-BLUE = (50,50,255)
-G = 6.67428*pow(10,-11)
-PL_MASS = pow(10,7)
-WIDTH, HEIGHT = 1600,800
-screen = pg.display.set_mode((WIDTH, HEIGHT)) 
-screen.fill(BLACK) 
-pg.display.flip() 
-clock = pg.time.Clock()
-pg.display.set_caption('Space Physics sim' + str(clock.get_fps()))
-orientation = 0
-rotation_vec = 0
-zoom = 1
-zoom_out = True
-ydist = 0.00000000001
-xdist = 0.00000000001
-a = 0
-R_MASS = 1000
-sensy = 0.2
-pg.font.init()
-method = 0
-pos = [(0,0), (0,0), (0,0)]
 
-
-
-class Rocket():
-    def __init__(self):
-        self.rocket_img = pg.image.load('rocket.png')
-        self.x = WIDTH/2 + 0.000000000001
-        self.y = HEIGHT/2
-        self.width = 25
-        self.heigt = 50
-    def draw(self):
-        if zoom > 0.1:
-            self.rocket_img = pg.transform.scale(self.rocket_img,(self.width*zoom,self.heigt*zoom))
-            self.image_rect = self.rocket_img.get_rect(topleft = (self.x-(self.width*zoom/2), self.y-(self.heigt*zoom/2)))
-        else:
-            self.rocket_img = pg.transform.scale(self.rocket_img,(self.width*0.1,self.heigt*0.1))
-            self.image_rect = self.rocket_img.get_rect(topleft = (self.x-(self.width*0.1/2), self.y-(self.heigt*0.1/2)))
-        self.offset_center_to_pivot = pg.math.Vector2((self.x,self.y)) - self.image_rect.center
-        self.rotated_offset = self.offset_center_to_pivot.rotate(orientation)
-        self.rotated_image_center = (self.x - self.rotated_offset.x, self.y - self.rotated_offset.y)
-        self.rotated_image = pg.transform.rotate(self.rocket_img, orientation)
-        self.rotated_image_rect = self.rotated_image.get_rect(center = self.rotated_image_center)
-        screen.blit(self.rotated_image, self.rotated_image_rect)
-class Planet():
-    def __init__(self):
-        self.radius = 100000
-        self.x = 0
-        self.y = -self.radius - rocket.heigt * 4
-        self.collision = False
-        self.x_vec = 0
-        self.y_vec = 0
-        self.zoomed_pos = (0,0)
-        self.f = 0.05
-    def update(self):
-        if keys[pg.K_SPACE] == 1:
-            self.x_vec += math.sin(orientation*math.pi/360*2)*self.f
-            self.y_vec += math.cos(orientation*math.pi/360*2)*self.f
-        if math.sqrt((ydist)**2 + (xdist)**2)-self.radius -rocket.heigt/2>0:
-            self.y_vec -= (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a))
-            self.x_vec += (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a))
-        else:
-            self.y_vec=abs(self.y_vec/1.5)* np.sign(self.y_vec)
-            self.x_vec=abs(self.x_vec/1.5)* np.sign(self.x_vec)
-        self.y -= self.y_vec
-        self.x += self.x_vec 
-        self.zoomed_pos = (self.x*zoom +WIDTH/2, -self.y*zoom + HEIGHT/2)
-        pg.draw.circle(screen, GREEN, self.zoomed_pos, self.radius*zoom)
-        
 @jit(parallel=True, fastmath=True, forceobj=True)
-def ballistic_computer():
-    x = rocket.x - WIDTH/2
-    y = rocket.y - HEIGHT/2
-    x_vec = planet.x_vec
-    y_vec = planet.y_vec
-    for i in range(5000):
-        x_pos = x
-        y_pos = y
-        xdist = planet.x -x
-        ydist = planet.y - y 
-        a = math.degrees(math.atan2(xdist, ydist))
-        y_vec = y_vec + (G*(PL_MASS*R_MASS/ydist*ydist)*1/60)*math.cos(math.radians(a)) 
-        x_vec = x_vec + (G*(PL_MASS*R_MASS/xdist*xdist)*1/60)*math.sin(math.radians(a)) 
-        y += y_vec
-        x += x_vec
-        zoomed_pos = (-x*zoom  +WIDTH/2 , -y*zoom  + HEIGHT/2 )
-        pos = (-x_pos*zoom  +WIDTH/2 , -y_pos*zoom  + HEIGHT/2 )
-        pg.draw.line(screen, BLUE, pos, zoomed_pos, int(5*zoom)+1)
+def trajectory(objects, screen):
+    delta_time = 10
+    objects_ = copy.deepcopy(objects)
+    for k_ in range(120):
+        for i, a in enumerate(objects_):
+            for j, b in enumerate(objects_):
+                if i >= j:
+                    continue
+                dx = b.x - a.x
+                dy = b.y - a.y
+                dist_sq = dx**2 + dy**2
+                dist = np.sqrt(dist_sq)
+                if dist == 0:
+                    continue
+                force_mag = 6.674e-11 * a.mass * b.mass / dist_sq
+                fx = force_mag * dx / dist
+                fy = force_mag * dy / dist
     
+                a.force[0] += fx
+                a.force[1] += fy
+                b.force[0] -= fx
+                b.force[1] -= fy
+            ax = a.force[0] / a.mass
+            ay = a.force[1] / a.mass
+            a.vel[0] += ax * delta_time
+            a.vel[1] += ay * delta_time
+            prev_x, prev_y = a.x, a.y
+            a.x += a.vel[0] * delta_time
+            a.y += a.vel[1] * delta_time
+            a.force = np.array([0.0, 0.0])
+            
+            
+            pg.draw.line(screen, [int(np.sin(time.time() + i) * 128 + 128) for i in [i, i + 1, i + 2]], app.to_screen_pos(prev_x, prev_y), app.to_screen_pos(a.x, a.y))
+            
 
+
+class Body:
+    def __init__(self, x=0, y=0, radius=100, color=[random.randint(0, 255) for _ in range(3)]):
+        self.x, self.y = x, y  # meters
+        self.color = color
+        self.radius = radius  # meters
+        self.volume = 4 * 3.14 * (self.radius ** 3) / 3  # m^3
+        self.mass = 1500 * self.volume  # Kg
+        self.vel = np.array([0.0, 0.0])  # m/s
+        self.angular_vel = 0.0  # rad/s
+        self.moment_of_inertia = 0.5 * self.mass * (self.radius ** 2)
+        self.force = np.array([0.0, 0.0])
+        self.history = []
         
-        
-class GUI():
+class Rocket:
     def __init__(self):
-        self.sf = pg.font.SysFont('Corbel',30)
-    def update(self):
-        self.velocity = self.sf.render('velocity : ' + str(round((math.sqrt(planet.x_vec**2 + planet.y_vec**2)*100))/100), True, WHITE)
-        self.alt = self.sf.render('altitude : ' + str(round((math.sqrt((ydist)**2 + (xdist)**2)-planet.radius)*10)/10), True, WHITE)
-        screen.blit(self.velocity,(0, 0))
-        screen.blit(self.alt, (0, 30))
-        
-rocket = Rocket()
-planet = Planet()
-gui = GUI()
-running = True
-while running: 
-    pg.display.set_caption('Space Physics sim | ' + str(round(clock.get_fps()*10)/10))
-    orientation -= rotation_vec
-    rotation_vec = rotation_vec / 1.12
-    keys = pg.key.get_pressed()
-    rotation_vec += (keys[pg.K_d] - keys[pg.K_q]) * 0.2
-    if zoom < 0.1: zoom_out == False
-    else: zoom_out = True
-    if zoom > 5: zoom = 5
-    if zoom_out == True : zoom += (keys[pg.K_i] - keys[pg.K_o]) * sensy*zoom
-    else: zoom += abs((keys[pg.K_i] - keys[pg.K_o])) * sensy*zoom
-    for event in pg.event.get(): 
-        if event.type == pg.QUIT: 
-            running = False
+        pass
 
-    screen.fill(BLACK)
-    xdist = rocket.x-WIDTH/2 -planet.x
-    ydist = rocket.y-HEIGHT/2 -planet.y
-    a = math.degrees(math.atan2(xdist, ydist))
+class App:
+    def __init__(self):
+        self.running = False
+        self.clock = pg.time.Clock()
+        self.RES = (1200, 900)
+        self.screen = None
+        self.FPS = 120
+        self.mouse_pos = (0, 0)
+        self.clicks = ()
+
+        self.bodies = []
+        self.preview_new_body = None
+        self.space_craft = None
+
+        self.cam_offset = [0, 0]
+        self.zoom = 1.0
+        self.dragging = False
+        self.last_mouse_pos = (0, 0)
+        self.paused = False
+        self.dragging_body = None
+        
+        self.font = pg.font.Font('freesansbold.ttf', 24)
+
+    def to_screen_pos(self, world_x, world_y):
+        return (
+            int((world_x + self.cam_offset[0]) * self.zoom),
+            int((world_y + self.cam_offset[1]) * self.zoom)
+            )
     
-    rocket.draw()
-    planet.update()
-    ballistic_computer()
-    gui.update()
+    def to_real_pos(self, screen_x, screen_y):
+        return (
+            int(screen_x / self.zoom - self.cam_offset[0]),
+            int(screen_y / self.zoom - self.cam_offset[1])
+            )
+
+    def cam_input(self, event):
+        if event.type == pg.MOUSEBUTTONDOWN:
+            if event.button == 3:
+                self.dragging = True
+                self.last_mouse_pos = pg.mouse.get_pos()
+        elif event.type == pg.MOUSEBUTTONUP:
+            if event.button == 3:
+                self.dragging = False
+        elif event.type == pg.MOUSEMOTION and self.dragging:
+            mouse_x, mouse_y = event.pos
+            dx = mouse_x - self.last_mouse_pos[0]
+            dy = mouse_y - self.last_mouse_pos[1]
+            self.last_mouse_pos = (mouse_x, mouse_y)
+            self.cam_offset[0] += dx / self.zoom
+            self.cam_offset[1] += dy / self.zoom
+        elif event.type == pg.MOUSEWHEEL:
+            mx, my = pg.mouse.get_pos()
+            world_x = mx / self.zoom - self.cam_offset[0]
+            world_y = my / self.zoom - self.cam_offset[1]
     
-    pg.display.flip()
-    clock.tick(60)
+            zoom_factor = 1.1
+            if event.y > 0:
+                self.zoom *= zoom_factor
+            elif event.y < 0:
+                self.zoom /= zoom_factor
     
-pg.quit()
+            self.cam_offset[0] = mx / self.zoom - world_x
+            self.cam_offset[1] = my / self.zoom - world_y
+                
+    def update(self, mouse_pos):
+            
+        if self.dragging_body != None and self.clicks[1]:
+            dx = mouse_pos[0] - self.dragging_body.x
+            dy = mouse_pos[1] - self.dragging_body.y
+            drag_force = self.dragging_body.mass / (self.dragging_body.radius * 100) #TWR = 2
+            self.dragging_body.force[0] += dx * drag_force
+            self.dragging_body.force[1] += dy * drag_force
+        
+        for i, b in enumerate(self.bodies):
+            for j, b2 in enumerate(self.bodies[i + 1:]):
+                dx = b2.x - b.x
+                dy = b2.y - b.y
+                dist = np.hypot(dx, dy)
+                if dist < b.radius + b2.radius:
+                    if b.radius > b2.radius:
+                        b.radius += b2.radius
+                        self.bodies.remove(b2)
+                    else:
+                        b2.radius += b.radius
+                        self.bodies.remove(b)
+                        
+            for j, b2 in enumerate(self.bodies):
+                if i >= j:
+                    continue
+                dx = b2.x - b.x
+                dy = b2.y - b.y
+                dist_sq = dx**2 + dy**2
+                dist = np.sqrt(dist_sq)
+                if dist == 0:
+                    continue
+                force_mag = 6.674e-11 * b.mass * b2.mass / dist_sq
+                fx = force_mag * dx / dist
+                fy = force_mag * dy / dist
+    
+                b.force[0] += fx
+                b.force[1] += fy
+                b2.force[0] -= fx
+                b2.force[1] -= fy
+            
+            ax = b.force[0] / b.mass
+            ay = b.force[1] / b.mass
+            b.vel[0] += ax
+            b.vel[1] += ay
+            b.x += b.vel[0]
+            b.y += b.vel[1]
+            
+            if int(b.x) % 20 == 0:
+                if len(b.history) > 300:
+                    b.history.pop(0)
+                b.history.append((b.x, b.y, [int(np.sin(time.time() + i) * 128 + 128) for i in [i, i + 1, i + 2]]))
+            
+            for point in b.history:
+                pg.draw.circle(self.screen, point[2], self.to_screen_pos(point[0], point[1]), b.radius / 5 * self.zoom)
+            
+            x, y = self.to_screen_pos(b.x, b.y)
+            x_f, y_f = self.to_screen_pos(b.x + b.force[0] / 50, b.y + b.force[1] / 50)
+            x_v, y_v = self.to_screen_pos(b.x + b.vel[0] * 40, b.y + b.vel[1] * 40)
+            r = int(b.radius * self.zoom)
+            pg.draw.circle(self.screen, b.color, (x, y), r)
+            try:
+                pg.draw.line(self.screen, (255, 0, 0), (x, y), (x_f, y), r // 10)
+                pg.draw.line(self.screen, (0, 0, 255), (x, y), (x, y_f), r // 10)
+                pg.draw.line(self.screen, (0, 255, 0), (x, y), (x_v, y_v), r // 10)
+            except:
+                pass
+            
+            b.force = np.array([0.0, 0.0])
+
+    def run(self):
+        self.running = True
+        self.screen = pg.display.set_mode(self.RES)
+
+        while self.running:
+            pg.display.set_caption(f'Py-Space Physics Simulator                 {round(self.clock.get_fps(), 2)}')
+            self.screen.fill((0, 0, 0))
+            self.mouse_pos = pg.mouse.get_pos()
+            mouse_pos = self.to_real_pos(self.mouse_pos[0], self.mouse_pos[1])
+            self.clicks = pg.mouse.get_pressed()
+            
+            text = self.font.render('Delete Spaceship' if self.space_craft else 'Spawn Spaceship', True, (0, 0, 0), (255, 255, 255))
+            text_rect = text.get_rect()
+            text_rect.topleft = (5, 5)
+            self.screen.blit(text, text_rect)
+                    
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    self.running = False
+                if event.type == pg.KEYDOWN:
+                    if event.key == pg.K_SPACE:
+                        self.pause = not self.paused
+                        time.sleep(0.1)
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        colliding = False
+                        if text_rect.collidepoint(self.mouse_pos):
+                            if self.space_craft:
+                                self.space_craft = None
+                            else:
+                                self.space_craft = Rocket()
+                        else:
+                            if self.preview_new_body == None:
+                                for i in self.bodies:
+                                    if i.radius >= np.hypot(i.x - mouse_pos[0], i.y - mouse_pos[1]):
+                                        colliding = True
+                                if not colliding:
+                                    self.preview_new_body = mouse_pos
+                            else:
+                                for i in self.bodies:
+                                    if i.radius + np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]) > np.hypot(i.x - self.preview_new_body[0], i.y - self.preview_new_body[1]):
+                                        colliding = True
+                                if not colliding:
+                                    self.bodies.append(Body(self.preview_new_body[0], self.preview_new_body[1], np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]), [int(np.sin(time.time() + i) * 128 + 128) for i in [0, 1, 2]]))
+                                    self.preview_new_body = None
+                        
+                    if event.button == 2:
+                        for b in self.bodies:
+                            if np.hypot(mouse_pos[0] - b.x, mouse_pos[1] - b.y) < b.radius:
+                                self.dragging_body = b
+                                break
+    
+                if event.type == pg.MOUSEBUTTONUP:
+                    if event.button == 2:
+                        self.dragging_body = None
+                                
+                self.cam_input(event)
+
+            if not self.paused:
+                self.update(mouse_pos)
+
+
+            if self.preview_new_body != None:
+                x, y = self.to_screen_pos(self.preview_new_body[0], self.preview_new_body[1])
+                r = int(np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]) * self.zoom)
+                pg.draw.circle(self.screen, [int(np.sin(time.time() + i) * 128 + 128) for i in [0, 1, 2]], (x, y), r)
+
+            pg.display.flip()
+            self.clock.tick(self.FPS)
+
+        pg.quit()
+
+if __name__ == '__main__':
+    pg.init()
+    app = App()
+    app.run()
