@@ -7,39 +7,37 @@ from numba import jit
 
 
 @jit(parallel=True, fastmath=True, forceobj=True)
-def trajectory(objects, screen):
-    delta_time = 10
+def trajectory(a, objects, screen):
+    delta_time = 30
     objects_ = copy.deepcopy(objects)
-    for k_ in range(120):
-        for i, a in enumerate(objects_):
-            for j, b in enumerate(objects_):
-                if i >= j:
-                    continue
-                dx = b.x - a.x
-                dy = b.y - a.y
-                dist_sq = dx**2 + dy**2
-                dist = np.sqrt(dist_sq)
-                if dist == 0:
-                    continue
-                force_mag = 6.674e-11 * a.mass * b.mass / dist_sq
-                fx = force_mag * dx / dist
-                fy = force_mag * dy / dist
-    
-                a.force[0] += fx
-                a.force[1] += fy
-                b.force[0] -= fx
-                b.force[1] -= fy
-            ax = a.force[0] / a.mass
-            ay = a.force[1] / a.mass
-            a.vel[0] += ax * delta_time
-            a.vel[1] += ay * delta_time
-            prev_x, prev_y = a.x, a.y
-            a.x += a.vel[0] * delta_time
-            a.y += a.vel[1] * delta_time
-            a.force = np.array([0.0, 0.0])
+    for k_ in range(240):
+        for j, b in enumerate(objects_):
+            if i >= j:
+                continue
+            dx = b.x - a.x
+            dy = b.y - a.y
+            dist_sq = dx**2 + dy**2
+            dist = np.sqrt(dist_sq)
+            if dist == 0:
+                continue
+            force_mag = 6.674e-11 * a.mass * b.mass / dist_sq
+            fx = force_mag * dx / dist
+            fy = force_mag * dy / dist
+
+            a.force[0] += fx
+            a.force[1] += fy
+            b.force[0] -= fx
+            b.force[1] -= fy
+        ax = a.force[0] / a.mass
+        ay = a.force[1] / a.mass
+        a.vel[0] += ax * delta_time
+        a.vel[1] += ay * delta_time
+        prev_x, prev_y = a.x, a.y
+        a.x += a.vel[0] * delta_time
+        a.y += a.vel[1] * delta_time
+        a.force = np.array([0.0, 0.0])
             
-            
-            pg.draw.line(screen, [int(np.sin(time.time() + i) * 128 + 128) for i in [i, i + 1, i + 2]], app.to_screen_pos(prev_x, prev_y), app.to_screen_pos(a.x, a.y))
+        pg.draw.line(screen, [int(np.sin(time.time() + i) * 128 + 128) for i in [i, i + 1, i + 2]], app.to_screen_pos(prev_x, prev_y), app.to_screen_pos(a.x, a.y))
             
 
 
@@ -51,14 +49,17 @@ class Body:
         self.volume = 4 * 3.14 * (self.radius ** 3) / 3  # m^3
         self.mass = 1500 * self.volume  # Kg
         self.vel = np.array([0.0, 0.0])  # m/s
-        self.angular_vel = 0.0  # rad/s
-        self.moment_of_inertia = 0.5 * self.mass * (self.radius ** 2)
         self.force = np.array([0.0, 0.0])
-        self.history = []
         
 class Rocket:
-    def __init__(self):
-        pass
+    def __init__(self, x, y):
+        self.x, self.y = x, y  # meters
+        self.color = [random.randint(0, 255) for _ in range(3)]
+        self.dim = (100, 100) #meters
+        self.volume = self.dim[0] * self.dim[1] * 1 #m^3
+        self.mass = 2200 * self.volume  # Kg
+        self.vel = np.array([0.0, 0.0])  # m/s
+        self.force = np.array([0.0, 0.0])
 
 class App:
     def __init__(self):
@@ -73,6 +74,7 @@ class App:
         self.bodies = []
         self.preview_new_body = None
         self.space_craft = None
+        self.preview_space_craft = None
 
         self.cam_offset = [0, 0]
         self.zoom = 1.0
@@ -126,58 +128,51 @@ class App:
                 
     def update(self, mouse_pos):
             
-        if self.dragging_body != None and self.clicks[1]:
+        if self.dragging_body != None:
             dx = mouse_pos[0] - self.dragging_body.x
             dy = mouse_pos[1] - self.dragging_body.y
-            drag_force = self.dragging_body.mass / (self.dragging_body.radius * 100) #TWR = 2
+            drag_force = self.dragging_body.mass / (self.dragging_body.radius * 100)
             self.dragging_body.force[0] += dx * drag_force
             self.dragging_body.force[1] += dy * drag_force
         
         for i, b in enumerate(self.bodies):
-            for j, b2 in enumerate(self.bodies[i + 1:]):
-                dx = b2.x - b.x
-                dy = b2.y - b.y
-                dist = np.hypot(dx, dy)
-                if dist < b.radius + b2.radius:
-                    if b.radius > b2.radius:
-                        b.radius += b2.radius
-                        self.bodies.remove(b2)
-                    else:
-                        b2.radius += b.radius
-                        self.bodies.remove(b)
-                        
-            for j, b2 in enumerate(self.bodies):
-                if i >= j:
-                    continue
-                dx = b2.x - b.x
-                dy = b2.y - b.y
-                dist_sq = dx**2 + dy**2
-                dist = np.sqrt(dist_sq)
-                if dist == 0:
-                    continue
-                force_mag = 6.674e-11 * b.mass * b2.mass / dist_sq
-                fx = force_mag * dx / dist
-                fy = force_mag * dy / dist
-    
-                b.force[0] += fx
-                b.force[1] += fy
-                b2.force[0] -= fx
-                b2.force[1] -= fy
-            
-            ax = b.force[0] / b.mass
-            ay = b.force[1] / b.mass
-            b.vel[0] += ax
-            b.vel[1] += ay
-            b.x += b.vel[0]
-            b.y += b.vel[1]
-            
-            if int(b.x) % 20 == 0:
-                if len(b.history) > 300:
-                    b.history.pop(0)
-                b.history.append((b.x, b.y, [int(np.sin(time.time() + i) * 128 + 128) for i in [i, i + 1, i + 2]]))
-            
-            for point in b.history:
-                pg.draw.circle(self.screen, point[2], self.to_screen_pos(point[0], point[1]), b.radius / 5 * self.zoom)
+            if not self.paused:
+                for j, b2 in enumerate(self.bodies[i + 1:]):
+                    dx = b2.x - b.x
+                    dy = b2.y - b.y
+                    dist = np.hypot(dx, dy)
+                    if dist < b.radius + b2.radius:
+                        if b.radius > b2.radius:
+                            b.radius += b2.radius
+                            self.bodies.remove(b2)
+                        else:
+                            b2.radius += b.radius
+                            self.bodies.remove(b)
+                            
+                for j, b2 in enumerate(self.bodies):
+                    if i >= j:
+                        continue
+                    dx = b2.x - b.x
+                    dy = b2.y - b.y
+                    dist_sq = dx**2 + dy**2
+                    dist = np.sqrt(dist_sq)
+                    if dist == 0:
+                        continue
+                    force_mag = 6.674e-11 * b.mass * b2.mass / dist_sq
+                    fx = force_mag * dx / dist
+                    fy = force_mag * dy / dist
+        
+                    b.force[0] += fx
+                    b.force[1] += fy
+                    b2.force[0] -= fx
+                    b2.force[1] -= fy
+                
+                ax = b.force[0] / b.mass
+                ay = b.force[1] / b.mass
+                b.vel[0] += ax
+                b.vel[1] += ay
+                b.x += b.vel[0]
+                b.y += b.vel[1]
             
             x, y = self.to_screen_pos(b.x, b.y)
             x_f, y_f = self.to_screen_pos(b.x + b.force[0] / 50, b.y + b.force[1] / 50)
@@ -214,36 +209,39 @@ class App:
                     self.running = False
                 if event.type == pg.KEYDOWN:
                     if event.key == pg.K_SPACE:
-                        self.pause = not self.paused
-                        time.sleep(0.1)
+                        self.paused = not self.paused
                 if event.type == pg.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         colliding = False
                         if text_rect.collidepoint(self.mouse_pos):
-                            if self.space_craft:
+                            if self.space_craft != None:
                                 self.space_craft = None
+                                self.preview_scape_craft = None
                             else:
-                                self.space_craft = Rocket()
+                                self.preview_space_craft = mouse_pos
                         else:
-                            if self.preview_new_body == None:
-                                for i in self.bodies:
-                                    if i.radius >= np.hypot(i.x - mouse_pos[0], i.y - mouse_pos[1]):
-                                        colliding = True
-                                if not colliding:
-                                    self.preview_new_body = mouse_pos
+                            if self.preview_space_craft != None:
+                                self.space_craft = Rocket(mouse_pos[0], mouse_pos[1])
+                                self.preview_space_craft = None
                             else:
-                                for i in self.bodies:
-                                    if i.radius + np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]) > np.hypot(i.x - self.preview_new_body[0], i.y - self.preview_new_body[1]):
-                                        colliding = True
-                                if not colliding:
-                                    self.bodies.append(Body(self.preview_new_body[0], self.preview_new_body[1], np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]), [int(np.sin(time.time() + i) * 128 + 128) for i in [0, 1, 2]]))
-                                    self.preview_new_body = None
+                                if self.preview_new_body == None:
+                                    for i in self.bodies:
+                                        if i.radius >= np.hypot(i.x - mouse_pos[0], i.y - mouse_pos[1]):
+                                            colliding = True
+                                    if not colliding:
+                                        self.preview_new_body = mouse_pos
+                                else:
+                                    for i in self.bodies:
+                                        if i.radius + np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]) > np.hypot(i.x - self.preview_new_body[0], i.y - self.preview_new_body[1]):
+                                            colliding = True
+                                    if not colliding:
+                                        self.bodies.append(Body(self.preview_new_body[0], self.preview_new_body[1], np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]), [int(np.sin(time.time() + i) * 128 + 128) for i in [0, 1, 2]]))
+                                        self.preview_new_body = None
                         
                     if event.button == 2:
                         for b in self.bodies:
                             if np.hypot(mouse_pos[0] - b.x, mouse_pos[1] - b.y) < b.radius:
                                 self.dragging_body = b
-                                break
     
                 if event.type == pg.MOUSEBUTTONUP:
                     if event.button == 2:
@@ -251,14 +249,16 @@ class App:
                                 
                 self.cam_input(event)
 
-            if not self.paused:
-                self.update(mouse_pos)
-
+            self.update(mouse_pos)
 
             if self.preview_new_body != None:
                 x, y = self.to_screen_pos(self.preview_new_body[0], self.preview_new_body[1])
                 r = int(np.hypot(mouse_pos[0] - self.preview_new_body[0], mouse_pos[1] - self.preview_new_body[1]) * self.zoom)
                 pg.draw.circle(self.screen, [int(np.sin(time.time() + i) * 128 + 128) for i in [0, 1, 2]], (x, y), r)
+            if self.preview_space_craft != None:
+                self.preview_space_craft = mouse_pos
+                x, y = self.to_screen_pos(self.preview_space_craft[0], self.preview_space_craft[1])
+                pg.draw.rect(self.screen, [int(np.sin(time.time() + i) * 128 + 128) for i in [0, 1, 2]], (x, y, 100, 100))
 
             pg.display.flip()
             self.clock.tick(self.FPS)
