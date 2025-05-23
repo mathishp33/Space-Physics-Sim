@@ -127,6 +127,36 @@ class App:
             self.cam_offset[1] = my / self.zoom - world_y
                 
     def update(self, mouse_pos):
+        
+        if self.space_craft != None:
+            if not paused:
+                sc = self.space_craft
+                for i, b in enumerate(self.bodies):
+                    dx = sc.x - b.x
+                    dy = sc.y - b.y
+                    dist_sq = dx**2 + dy**2
+                    dist = np.sqrt(dist_sq)
+                    if dist == 0:
+                        continue
+                    force_mag = 6.674e-11 * b.mass * sc.mass / dist_sq
+                    fx = force_mag * dx / dist
+                    fy = force_mag * dy / dist
+        
+                    b.force[0] += fx
+                    b.force[1] += fy
+                    sc.force[0] -= fx
+                    sc.force[1] -= fy
+                
+                ax = self.space_craft.force[0] / self.space_craft.mass
+                ay = self.space_craft.force[1] / self.space_craft.mass
+                self.space_craft.vel[0] += ax
+                self.space_craft.vel[1] += ay
+                self.space_craft.x += self.space_craft.vel[0]
+                self.space_craft.y += self.space_craft.vel[1]
+                    
+            pg.draw.rect(self.screen, self.space_craft.color, ())
+            
+            self.space_craft.force = np.array([0.0, 0.0])
             
         if self.dragging_body != None:
             dx = mouse_pos[0] - self.dragging_body.x
