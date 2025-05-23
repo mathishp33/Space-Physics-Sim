@@ -1,6 +1,5 @@
 # Space-Physics-Sim
-A python game that simulate space physics.
 
 Requirements : pygame, numba
 
-You can push you spacecraft by pressing Space bar, rotating it by pressing 'q' and 'd' and you can zoom in and out with the 'i' and 'o' keys.
+A python demo game that simulate Newton's laws, you can left click to place bodies, hold middle click to drag bodies, hold right click to move the camera and you can zoom in/out with scrolling.
