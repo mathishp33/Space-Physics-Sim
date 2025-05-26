@@ -3,6 +3,7 @@ import random
 import numpy as np
 import time
 from numba import jit
+import math
 
 
 @jit(parallel=True, fastmath=True, forceobj=True)
@@ -56,6 +57,7 @@ class Rocket:
         self.mass = 2200 * self.volume  # Kg
         self.vel = np.array([0.0, 0.0])  # m/s
         self.force = np.array([0.0, 0.0])
+        self.orientation = 0
 
 class App:
     def __init__(self):
@@ -150,7 +152,22 @@ class App:
                 self.space_craft.x += self.space_craft.vel[0]
                 self.space_craft.y += self.space_craft.vel[1]
                     
-            pg.draw.rect(self.screen, self.space_craft.color, ())
+                    
+            centerx, centery = self.space_craft.x - 50, self.space_craft.y - 50
+            points = []
+
+            radius = math.sqrt((self.space_craft.dim[0] / 2)**2 + (self.space_craft.dim[1] / 2)**2)
+            angle = math.atan2(self.space_craft.dim[0] / 2, self.space_craft.dim[1] / 2)
+            angles = [angle, -angle + math.pi, angle + math.pi, -angle]
+            rot_radians = (math.pi / 180) * self.space_craft.orientation
+
+            for angle in angles:
+                y_offset = -1 * radius * math.sin(angle + rot_radians)
+                x_offset = radius * math.cos(angle + rot_radians)
+                x, y = centerx + x_offset, centery + y_offset
+                points.append(self.to_screen_pos(x, y))
+
+            pg.draw.polygon(self.screen, self.space_craft.color, points)
             
             self.space_craft.force = np.array([0.0, 0.0])
             
@@ -236,6 +253,19 @@ class App:
                 if event.type == pg.KEYDOWN:
                     if event.key == pg.K_SPACE:
                         self.paused = not self.paused
+                    if self.space_craft != None:
+                        if event.key == pg.K_UP:
+                            mag = 1000
+                            self.space_craft.force[0] = mag * np.cos(self.space_craft.orientation)
+                            self.space_craft.force[1] = mag * np.sin(self.space_craft.orientation)
+                        if event.key == pg.K_DOWN:
+                            mag = -1000
+                            self.space_craft.force[0] = mag * np.cos(self.space_craft.orientation)
+                            self.space_craft.force[1] = mag * np.sin(self.space_craft.orientation)
+                        if event.key == pg.K_LEFT:
+                            self.space_craft.orientation += 5
+                        if event.key == pg.K_RIGHT:
+                            self.space_craft.orientation -= 5
                 if event.type == pg.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         colliding = False
