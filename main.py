@@ -2,18 +2,14 @@ import pygame as pg
 import random
 import numpy as np
 import time
-import copy
 from numba import jit
 
 
 @jit(parallel=True, fastmath=True, forceobj=True)
 def trajectory(a, objects, screen):
     delta_time = 30
-    objects_ = copy.deepcopy(objects)
-    for k_ in range(240):
-        for j, b in enumerate(objects_):
-            if i >= j:
-                continue
+    for i in range(240):
+        for j, b in enumerate(objects):
             dx = b.x - a.x
             dy = b.y - a.y
             dist_sq = dx**2 + dy**2
@@ -129,7 +125,7 @@ class App:
     def update(self, mouse_pos):
         
         if self.space_craft != None:
-            if not paused:
+            if not self.paused:
                 sc = self.space_craft
                 for i, b in enumerate(self.bodies):
                     dx = sc.x - b.x
