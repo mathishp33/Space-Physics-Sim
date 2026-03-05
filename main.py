@@ -6,38 +6,6 @@ from numba import jit
 import math
 
 
-@jit(parallel=True, fastmath=True, forceobj=True)
-def trajectory(a, objects, screen):
-    delta_time = 30
-    for i in range(240):
-        for j, b in enumerate(objects):
-            dx = b.x - a.x
-            dy = b.y - a.y
-            dist_sq = dx**2 + dy**2
-            dist = np.sqrt(dist_sq)
-            if dist == 0:
-                continue
-            force_mag = 6.674e-11 * a.mass * b.mass / dist_sq
-            fx = force_mag * dx / dist
-            fy = force_mag * dy / dist
-
-            a.force[0] += fx
-            a.force[1] += fy
-            b.force[0] -= fx
-            b.force[1] -= fy
-        ax = a.force[0] / a.mass
-        ay = a.force[1] / a.mass
-        a.vel[0] += ax * delta_time
-        a.vel[1] += ay * delta_time
-        prev_x, prev_y = a.x, a.y
-        a.x += a.vel[0] * delta_time
-        a.y += a.vel[1] * delta_time
-        a.force = np.array([0.0, 0.0])
-            
-        pg.draw.line(screen, [int(np.sin(time.time() + i) * 128 + 128) for i in [i, i + 1, i + 2]], app.to_screen_pos(prev_x, prev_y), app.to_screen_pos(a.x, a.y))
-            
-
-
 class Body:
     def __init__(self, x=0, y=0, radius=100, color=[random.randint(0, 255) for _ in range(3)]):
         self.x, self.y = x, y  # meters
@@ -65,10 +33,12 @@ class App:
         self.clock = pg.time.Clock()
         self.RES = (1200, 900)
         self.screen = None
-        self.FPS = 120
+        self.FPS = 240
         self.mouse_pos = (0, 0)
         self.clicks = ()
 
+        self.MAG = 1e-3
+        self.ITERS = 200
         self.bodies = []
         self.preview_new_body = None
         self.space_craft = None
@@ -174,7 +144,7 @@ class App:
         if self.dragging_body != None:
             dx = mouse_pos[0] - self.dragging_body.x
             dy = mouse_pos[1] - self.dragging_body.y
-            drag_force = self.dragging_body.mass / (self.dragging_body.radius * 100)
+            drag_force = self.dragging_body.mass / (self.dragging_body.radius) * self.MAG
             self.dragging_body.force[0] += dx * drag_force
             self.dragging_body.force[1] += dy * drag_force
         
@@ -209,6 +179,8 @@ class App:
                     b.force[1] += fy
                     b2.force[0] -= fx
                     b2.force[1] -= fy
+                    
+                    
                 
                 ax = b.force[0] / b.mass
                 ay = b.force[1] / b.mass
@@ -216,6 +188,8 @@ class App:
                 b.vel[1] += ay
                 b.x += b.vel[0]
                 b.y += b.vel[1]
+                
+            
             
             x, y = self.to_screen_pos(b.x, b.y)
             x_f, y_f = self.to_screen_pos(b.x + b.force[0] / 50, b.y + b.force[1] / 50)
@@ -236,7 +210,7 @@ class App:
         self.screen = pg.display.set_mode(self.RES)
 
         while self.running:
-            pg.display.set_caption(f'Py-Space Physics Simulator                 {round(self.clock.get_fps(), 2)}')
+            pg.display.set_caption(f'Py-Space Physics Simulator  {round(self.clock.get_fps(), 2)}')
             self.screen.fill((0, 0, 0))
             self.mouse_pos = pg.mouse.get_pos()
             mouse_pos = self.to_real_pos(self.mouse_pos[0], self.mouse_pos[1])
@@ -255,13 +229,11 @@ class App:
                         self.paused = not self.paused
                     if self.space_craft != None:
                         if event.key == pg.K_UP:
-                            mag = 1000
-                            self.space_craft.force[0] = mag * np.cos(self.space_craft.orientation)
-                            self.space_craft.force[1] = mag * np.sin(self.space_craft.orientation)
+                            self.space_craft.force[0] = self.MAG * np.cos(self.space_craft.orientation)
+                            self.space_craft.force[1] = self.MAG * np.sin(self.space_craft.orientation)
                         if event.key == pg.K_DOWN:
-                            mag = -1000
-                            self.space_craft.force[0] = mag * np.cos(self.space_craft.orientation)
-                            self.space_craft.force[1] = mag * np.sin(self.space_craft.orientation)
+                            self.space_craft.force[0] = -self.MAG * np.cos(self.space_craft.orientation)
+                            self.space_craft.force[1] = -self.MAG * np.sin(self.space_craft.orientation)
                         if event.key == pg.K_LEFT:
                             self.space_craft.orientation += 5
                         if event.key == pg.K_RIGHT:
@@ -302,7 +274,7 @@ class App:
                 if event.type == pg.MOUSEBUTTONUP:
                     if event.button == 2:
                         self.dragging_body = None
-                                
+                        
                 self.cam_input(event)
 
             self.update(mouse_pos)
@@ -321,7 +293,9 @@ class App:
 
         pg.quit()
 
+
 if __name__ == '__main__':
     pg.init()
     app = App()
     app.run()
+
